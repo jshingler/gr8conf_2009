@@ -1,0 +1,600 @@
+Building gtcc
+
+
+100 - Speed setup with gConfig
+---------------------------------------------------
+
+Plugins:
+- Installer
+- Splash
+- Swingx-builder
+
+Libs
+- miglayout
+- famfamfam
+- httpbuilder
+
+110 - Explorer the directory structure
+---------------------------------------------------
+
+
+===================================================
+Login
+===================================================
+
+200 - Login
+---------------------------------------------------
+We will use SwingLabs SwingX components to help us
+
+We need:
+- Login Action
+- Login Menu and Toolbar
+- Login Screen
+- Login Controller Action
+- Login Service Twitter
+
+210 - Login Action
+---------------------------------------------------
+
+action(id: 'loginAction',
+			name: 'Login',
+			closure: controller.&showLogin,
+			mnemonic: 'L',
+			shortDescription: 'Login',
+			//enabled: bind {!model.loggedIn},
+			smallIcon: imageIcon(resource:"icons/login.png", class:controller.getClass())
+		)
+
+220 - Login Menu Entry and Toolbar Item
+---------------------------------------------------
+Menu
+menuItem(loginAcion)
+
+Toolbar
+button(loginAction)
+
+230 - Gtcc Controller login action  showLogin
+---------------------------------------------------
+
+import org.jdesktop.swingx.JXLoginPane
+
+
+gr8 tab 230
+
+def loginPane = new JXLoginPane()
+loginPane.loginService = twitterService
+loginPane.bannerText = "GTCC Login"
+loginPane.message = "You MUST Login before you can access your Tweets"
+loginPane.showLoginDialog(null, loginPane)
+
+240 - Twitter Service
+---------------------------------------------------
+src/main/TwitterService.groovy
+
+
+This Service will handle the communication with the Grails Twitter Clone.
+
+We will be using Basic Auth to authenticate with the Grails Twitter Clone.
+
+So we need to be able to login
+
+
+Authenticate(String name, char[] password, String server)
+This method is intended to be implemented by clients wishing to authenticate a user with a given password.
+
+gr8 tab 240
+
+
+class UserContext {
+	String userName
+	String password
+}
+
+RUN IT
+------
+
+===================================================
+Display User Information
+===================================================
+300 Controller Prep
+---------------------------------------------------
+
+showLogin  Add Call to get User Information
+
+status("Logging in")
+model.user = twitterService.getUser(twitterService?.userContext?.userName)
+model.loggedIn= true
+status("Ready . . .")
+
+310  Model Prep
+---------------------------------------------------
+@Bindable Person user = new Person()
+@Bindable boolean loggedIn = false
+
+
+320 Some Prep Work Save info from Twitter Clone (Twitter Service & Person)
+---------------------------------------------------
+
+Create Person.groovy
+
+gr8 tab 300 - person
+
+class Person {	
+	def id
+	def username
+	def description
+	def email
+	def emailShow
+	def enabled
+	def userRealName
+	def following = []	
+}
+
+330 TwitterService getUser
+---------------------------------------------------
+
+def peopleCache = [:]
+
+def getUser = { userName ->
+	
+	def person 
+	XmlSlurper slurper = new XmlSlurper()
+	
+	http.request(GET,TEXT) { req ->
+	  uri.path = "/twitter/person/findByUsername.xml"
+	  uri.query = [ username: userName ]
+
+	  response.success = { resp, reader ->
+		def p = slurper.parseText(reader.text)
+		
+		person = new Person(id: p.@id)
+		person.with {
+			username = p.username
+			userRealName = p.userRealName
+			description = p.description
+			email = p.email
+			emailShow = p.emailShow
+			enabled = p.enabled
+			p.following.children().each{
+				following << it.@id
+			}
+		}		
+		
+		def key = person.id
+		peopleCache.key = person	
+		return person
+	  }
+	}
+}
+
+335 - Swingpad Basic Layout
+---------------------------------------------------
+
+Start SwingPad
+/opt/local/share/Griffon-0.1.0/samples/SwingPad
+Add MigLayout to SwingPad
+
+IF TIME PERMITS:  Display without MigLayout
+
+panel() {
+      panel (id: "userPanel") {
+        label(id: "userImageLabel",text: "Picture ")
+        label(text: "Jim Shingler")
+        label(text: "jshingler")
+        label(text: "Lovin The Groovy")
+      }
+      separator()
+}
+
+--------------
+SwingPad
+
+import net.miginfocom.swing.MigLayout
+
+panel(layout: new MigLayout("flowy, insets 0 0 0 0", "[grow, fill]")) {
+
+      def mig = new MigLayout("flowy, insets 0 10 0 0")
+      panel (id: "userPanel", layout: mig) {
+        label(id: "userImageLabel",text: "Picture ", constraints: "spany, wrap")
+        label(text: "Jim Shingler")
+        label(text: "jshingler")
+        label(text: "Lovin The Groovy")
+      }
+      separator(constraints: "growx")
+}
+
+RUN IT
+------
+
+
+---------------------------------------------------
+Adding the user image
+---------------------------------------------------
+
+
+340 Add The user image to person
+---------------------------------------------------
+
+def imageName = {
+	username ? "${username}.jpg" : "griffon.jpg"
+}
+
+350 Update view to use user imageName
+---------------------------------------------------
+
+def updateUserImage() {
+	userImageLabel.icon = imageIcon(resource: model.user.imageName(), class:this.getClass())
+}
+
+DON'T FORGET TO CALL IT IN VIEW
+
+NOW LETS GET IT TO UPDATE THE IMAGE WHEN YOU LOGIN
+
+360 showLogin call view.updateUserImage()
+---------------------------------------------------
+
+view.updateUserImage()
+
+===================================================
+Display Statuses
+===================================================
+SAME APPROACH:
+- Controller
+- Model
+- Service
+- View
+
+400 Controller UpdateStates
+---------------------------------------------------
+
+def updateStatuses = { evt = null ->
+   println "UPDATE STATUSES - ${new Date()}"
+   status("Updating statuses")
+   		def statuses = twitterService.getStatuses()
+   		//view.statusesPanel.removeAll()
+		statuses.each {
+		    println "Dumping Status:${it.dump()}"
+			//def mvcId = "${it.id}"
+			//createMVCGroup("StatusPanel",mvcId, [mvcId:mvcId, status: it, statusesPanel: view.statusesPanel])
+		}	
+		//view.statusesPanel.revalidate()
+		status("Updated Statuses . . . ")
+}
+
+410 create a status object
+---------------------------------------------------
+Create model/Status.groovy
+
+class Status {
+	def id
+	def dateCreated
+	def message
+	def personId
+	def person
+}
+
+420 TwitterService.getStatuses
+---------------------------------------------------
+
+
+def getStatuses = {
+
+	def statuses = []
+	XmlSlurper slurper = new XmlSlurper()
+	
+	http.request(GET,TEXT) { req ->
+	  uri.path = "/twitter/status/index.xml"
+
+	  response.success = { resp, reader ->
+		def l = slurper.parseText(reader.text)
+			
+		l.children().each { s ->
+			def status = new Status(id: s.@id)
+			status.with {
+				id = s.@id
+				message = s.message
+				dateCreated = s.dateCreated
+				personId = (s.person.@id)
+				person = getPersonById(s.person.@id)
+			}
+			statuses << status
+		}			
+		return statuses
+	  }
+	}
+}
+
+430 TwitterService.getPersonById
+---------------------------------------------------
+
+def getPersonById = { id ->
+	
+	if (peopleCache.id) return peopleCache.id
+	
+	def person 
+	XmlSlurper slurper = new XmlSlurper()
+	
+	http.request(GET,TEXT) { req ->
+	  uri.path = "/twitter/person/show.xml"
+	  uri.query = [ id: id ]
+
+	  response.success = { resp, reader ->
+		def p = slurper.parseText(reader.text)
+		
+		person = new Person(id: p.@id)
+		person.with {
+			username = p.username
+			userRealName = p.userRealName
+			description = p.description
+			email = p.email
+			emailShow = p.emailShow
+			enabled = p.enabled
+		}		
+		
+		peopleCache.userName = person	
+		return person
+	  }
+	}
+}
+
+DON'T FORGET TO CALL updateStatuses from showLogin
+
+RUN IT
+------
+
+NEXT STATUSES VIEW WORK
+-----------------------
+
+440 USE SwingPad to design the Status Panel
+---------------------------------------------------
+
+import net.miginfocom.swing.MigLayout
+import java.awt.Color
+
+panel(background: Color.white, layout: new MigLayout()) {
+  label(text: "PIC HERE")
+  label(text: "My Message", constraints: "growx, span, wrap")
+  label(text: "jshingler")
+  label(text: "Jim Shingler")
+  label(text: new Date(), constraints: "growx ,align right")
+}
+
+Add it to the App
+-----------------
+
+450 - GtccView  Scroll panel
+---------------------------------------------------
+
+  scrollPane(constraints: "height 200:400, growx, growy") {
+    panel(id: "statusesPanel", layout: new MigLayout("flowy, insets 0 0 0 0, fill", "[grow, fill]"))
+  }
+  separator(constraints: "growx")
+
+
+
+460 - Status Panel MVC createMVC
+---------------------------------------------------
+griffon create-mvc StatusPanel
+
+
+463 - StatusPanelController mvcinit
+---------------------------------------------------
+
+model.id = args.id
+model.message = args.status.message
+model.dateCreated = args.status.dateCreated
+model.personId = args.status.personId
+model.person = args.status.person
+
+
+465 - StatusPanelModel
+---------------------------------------------------
+
+@Bindable String id
+@Bindable String message
+@Bindable String dateCreated
+@Bindable String personId
+@Bindable Person person
+
+470 - StatusPanelView
+---------------------------------------------------
+
+import net.miginfocom.swing.MigLayout
+import java.awt.Color
+
+statusesPanel.add(
+    panel(background: Color.white, layout: new MigLayout()) {
+      label(icon: imageIcon(resource: model.person.imageName(), class: controller.getClass()))
+      label(text: bind{model.message}, constraints: "growx, span, wrap")
+      label(text: bind{model.person.username})
+      label(text: bind{model.person.userRealName})
+      label(text: bind{model.dateCreated}, constraints: "growx ,align right")
+    }
+)
+
+
+480 - GtccController load Status Panels
+---------------------------------------------------
+
+view.statusesPanel.removeAll()
+statuses.each {
+	def mvcId = "${it.id}"
+	createMVCGroup("StatusPanel",mvcId, [mvcId:mvcId, status: it, statusesPanel: view.statusesPanel])
+}	
+view.statusesPanel.revalidate()
+
+
+===================================================
+Update Statuses
+===================================================
+SAME APPROACH:
+- Controller
+- Model
+- Service
+- View
+
+
+500 - GtccController.updateStatus
+---------------------------------------------------
+
+def updateStatus = { evt = null ->
+    status("Sending Status update")
+    twitterService.status("${view.statusText.text}")
+    updateStatuses()
+    status("Status updated")
+}
+
+510 - TwitterService.status()
+---------------------------------------------------
+
+def status = { message ->
+	http.request(PUT,TEXT) { req ->
+	  uri.path = "/twitter/status/update"
+	  uri.query = [ message: message ]
+
+	  response.success = { resp, reader -> }
+	}
+}
+
+520 - updateStatusAction
+---------------------------------------------------
+
+action(id: 'updateStatusAction',
+			name: 'Update',
+			closure: controller.&updateStatus,
+			mnemonic: 'U',
+			enabled: bind {model.loggedIn},
+			shortDescription: 'Update Status'
+			)
+
+530 - GtccView Status Update
+---------------------------------------------------
+
+panel(layout: new MigLayout("insets 0 0 0 0, fill")) {
+  textArea id: 'statusText',  constraints: "width 400, growx"
+  button updateStatusAction
+}
+
+
+RUN IT
+------
+
+
+
+===================================================
+Automatic Refreshes
+===================================================
+600 - GtccController RefreshTimer
+---------------------------------------------------
+import javax.swing.Action
+import javax.swing.Timer
+
+Timer refreshTimer
+Action refreshTimerAction
+
+void mvcGroupInit(Map args) {
+    // this method is called after model and view are injected
+
+    refreshTimerAction = action( id: "refreshTimerAction",
+            name: 'RefreshTimer',
+            closure: this.&refreshTimerTask
+        )
+ 
+    refreshTimer = new Timer(30000, refreshTimerAction)
+}
+
+void refreshTimerTask(evt) {
+   	if (!model.loggedIn) {
+		println "REFRESH TIMER ACTION - NOT LOGGED IN"
+	} else {		
+   		println "REFRESH TIMER ACTION - ${new Date()}"
+        updateStatuses()
+	}
+}
+
+DON'T FORGET IMPORTS
+import javax.swing.Action
+import javax.swing.Timer
+
+DON'T FORGET CONFIG
+
+605 - Configure Builder
+---------------------------------------------------
+,'Binding','SupportNodes'
+
+610 - Refresh Action
+---------------------------------------------------
+
+action(id: 'refreshAction',
+			name: 'Refresh',
+			closure: controller.&updateStatuses,
+			mnemonic: 'R',
+			shortDescription: 'Refesh',
+			enabled: bind {model.loggedIn},
+			smallIcon: imageIcon(resource:"icons/refresh.png", class:controller.getClass())
+			)
+
+620 - Add Refresh to Toolbar
+---------------------------------------------------
+
+button(refreshAction, text:null)
+
+
+630 - Timer Start
+---------------------------------------------------
+after logging in
+
+refreshTimer.start()
+
+
+===================================================
+Threading
+===================================================
+
+GtccController.showLogin
+
+execWithExceptionHandling({
+   status("Logging in")
+   doOutside {			
+   	   model.user = twitterService.getUser(twitterService?.userContext?.userName)
+       edt {			
+	        println "AAAAAAAAAAAAAAAAA"
+	   		view.updateUserImage()
+			updateStatuses()
+			model.loggedIn = true
+	   }
+   }
+   //model.name = model.user?.userRealName
+   refreshTimer.start()
+   println "BBBBBBBBBBBBBBBBBB"
+   status("Ready . . . ")
+})
+
+
+
+
+
+def updateStatuses = { evt = null ->
+   println "UPDATE STATUSES - ${new Date()}"
+   status("Updating statuses")
+   doOutside {
+   		def statuses = twitterService.getStatuses()
+	    Thread.sleep(3000)
+		doLater{
+   			view.statusesPanel.removeAll()
+			statuses.each {
+				def mvcId = "${it.id}"
+				createMVCGroup("StatusPanel",mvcId, [mvcId:mvcId, status: it, statusesPanel: view.statusesPanel])
+			}	
+			view.statusesPanel.revalidate()
+			status("Updated Statuses . . . ")
+		}
+   }
+}
+
+
+
+
+
+
+

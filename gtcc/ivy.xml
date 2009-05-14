@@ -1,0 +1,12 @@
+<ivy-module version='2.0'>
+  <info organisation='codehaus' module='Griffon' />
+  <dependencies>
+    <dependency org='com.famfamfam' name='silk' rev='1.3' conf='' />
+    <dependency org='com.miglayout' name='miglayout' rev='3.6.3' conf=''>
+      <exclude module='substance' />
+    </dependency>
+    <dependency org='org.codehaus.groovy.modules.http-builder' name='http-builder' rev='0.5.0-SNAPSHOT' conf=''>
+      <exclude module='junitxml-apis' />
+    </dependency>
+  </dependencies>
+</ivy-module>

@@ -1,0 +1,201 @@
+Counting
+========
+========
+
+
+Setup
+============================================
+
+010 - griffon create-app counting
+020 - griffon install-plugin swingx-builder
+
+Create GUI Components
+============================================
+
+030 - Create Button 
+--------------------------------------------
+      button "Click Me"
+RUN IT
+------
+
+040 - Make Button run controller.click
+--------------------------------------------
+def click = { evt = null ->
+	println "BUTTON WAS CLICKED"
+}
+
+050 - Create Actions.groovy
+--------------------------------------------
+
+// create the actions
+action(id: 'clickAction',
+		name: 'Click Me',
+		closure: controller.&click,
+		shortDescription: 'Increment the Click Count'
+		)
+
+060 - view build actions
+--------------------------------------------
+build Actions
+
+070 - add action to button
+--------------------------------------------
+action: clickAction
+RUN IT
+------
+
+080 - Model count
+--------------------------------------------
+import groovy.beans.Bindable
+
+@Bindable
+class CountingModel {
+	def count = 0
+}
+
+090 - controller.click { model.count++ }
+--------------------------------------------
+model.count++
+println "Count = ${model.count}"
+RUN IT
+------
+
+100 - Display count on the Button via binding
+--------------------------------------------
+text: bind {model.count}
+RUN IT
+------
+
+110 - Let's add a Menu system
+--------------------------------------------
+jxmenuBar {
+    menu(text: 'File', mnemonic: 'F') {
+        menuItem(exitAction)
+    }
+
+    glue()
+    menu(text: 'Help', mnemonic: 'H') {
+        menuItem(aboutAction)
+    }
+}
+
+120 - view build menu
+--------------------------------------------
+build MenuBar
+
+130 - add the actions
+--------------------------------------------
+action(id: 'exitAction',
+		name: 'Exit',
+		closure: controller.&exit,
+		mnemonic: 'X',
+	    accelerator: 'F4',
+		shortDescription: 'Exit the Application'
+		)
+		
+action(id: 'aboutAction',
+		name: 'About',
+		closure: controller.&about,
+		mnemonic: 'A',
+	    accelerator: 'F1',
+		shortDescription: 'Learn about the Application'
+		)
+
+140 - add exit to controller
+--------------------------------------------
+def exit = { evt = null ->
+	app.shutdown()
+}
+
+150 - Display Dialog Box
+--------------------------------------------
+import javax.swing.JOptionPane
+
+def builder
+
+def about = { evt = null ->
+    	// JOptionPane.showMessageDialog(null,'This is the Counting Application')
+		builder.optionPane().showMessageDialog(null,"This is the Counting Application")
+    }
+RUN IT
+------
+
+
+
+======================
+======================
+Threading
+======================
+======================
+
+
+
+160 - Update the model with additional counters
+--------------------------------------------
+def countSlow = 0
+def countConcurrent = 0
+
+170 - Update the view
+--------------------------------------------
+
+gridLayout()
+button text: bind {model.count}, action: clickAction
+label text: bind {model.count}
+
+button id: 'slowClickButton', text: "Slow Click", action: slowClickAction
+label text: bind {model.countSlow}
+
+button id: 'concurrentClickButton', text: "Concurrent Click", action: concurrentClickAction
+label text: bind {model.countConcurrent}
+
+180 - Create the actions to call the controller
+--------------------------------------------
+action(id: 'slowClickAction',
+		name: 'slowClick',
+		closure: controller.&slowClick,
+		shortDescription: 'A Slow Click'
+		)
+
+action(id: 'concurrentClickAction',
+		name: 'concurrentClick',
+		closure: controller.&concurrentClick,
+		shortDescription: 'A Concurrent Click'
+		)
+
+190 - create controller actions
+--------------------------------------------
+def slowClick = { evt = null ->
+	println "SLOW BUTTON WAS CLICKED"
+	Thread.sleep(5000)
+	model.countSlow++
+	println "Slow Count = ${model.countSlow}"
+}
+
+def concurrentClick = { evt = null ->
+	println "CONCURRENT BUTTON WAS CLICKED"
+	//doOutside{			
+		Thread.sleep(5000)
+		//edt {				
+			model.countConcurrent++
+			println "Concurrent Count = ${model.countConcurrent}"
+		//}
+	//}
+}
+
+RUN IT
+------
+
+200 - Threading
+--------------------------------------------
+def concurrentClick = { evt = null ->
+	println "CONCURRENT BUTTON WAS CLICKED"
+	doOutside{			
+		Thread.sleep(5000)
+		edt {				
+			model.countConcurrent++
+			println "Concurrent Count = ${model.countConcurrent}"
+		}
+	}
+}
+
+

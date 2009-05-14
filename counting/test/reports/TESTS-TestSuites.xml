@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites>
+  <testsuite errors="0" failures="0" hostname="james-shinglers-macbook-pro.local" id="0" name="CountingTests" package="" tests="1" time="0.018" timestamp="2009-05-08T00:27:19">
+      <properties />
+
+      <testcase classname="CountingTests" name="testSomething" time="0.0010" />
+
+      <system-out><![CDATA[--Output from testSomething--
+]]></system-out>
+
+      <system-err><![CDATA[--Output from testSomething--
+]]></system-err>
+
+  </testsuite>
+</testsuites>
