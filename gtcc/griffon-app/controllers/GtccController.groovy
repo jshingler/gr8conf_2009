@@ -70,7 +70,7 @@ class GtccController {
 	}
 	
 	def updateStatus = { evt = null ->
-	    twitterService.status("statusText.text}")
+	    twitterService.status("${view.statusText.text}")
 	    updateStatuses()
 	    view.statusText.text = ""
 	}
